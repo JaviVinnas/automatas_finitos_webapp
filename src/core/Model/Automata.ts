@@ -28,10 +28,9 @@ type Letters =
 
 type StateNames = `${Uppercase<Letters>}${Uppercase<Letters> | ""}`;
 
-type AlphabetPlusBinary = Letters | 0 | 1;
 
 type FiniteAutomata<
-  AcceptedSymbols extends AlphabetPlusBinary | 0 | 1,
+  AcceptedSymbols extends Letters | 0 | 1,
   States extends StateNames
 > = Record<
   States,
