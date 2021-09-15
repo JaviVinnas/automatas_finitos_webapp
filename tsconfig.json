@@ -1,0 +1,8 @@
+{
+
+  "include": ["src/**/**/*", "modules.d.ts"],
+  "exclude": ["node_modules/*", "__sapper__/*", "public/*"],
+  "compilerOptions": {
+    "types": ["jest", "node"]
+  }
+}
