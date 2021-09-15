@@ -1,16 +1,5 @@
 <script lang="ts">
-  import {
-    Header,
-    Content,
-    Grid,
-    Row,
-    Column,
-    Tabs,
-    Tab,
-    TabContent,
-  } from "carbon-components-svelte";
-  import { Settings, CreateSchedule } from "./pages";
-  import { Welcomer } from "./components";
+  import { Header } from "carbon-components-svelte";
 </script>
 
 <svelte:head>
@@ -20,33 +9,4 @@
   />
 </svelte:head>
 
-<Header company="Javi Viña's" platformName="Notion Weekify" />
-
-<Content>
-  <Grid fullWidth>
-    <Row>
-      <Column>
-        <Welcomer />
-      </Column>
-    </Row>
-    <Row>
-      <Column>
-        <br />
-        <br />
-      </Column>
-    </Row>
-    <Row>
-      <Column>
-        <Tabs>
-          <Tab label="Crear horario" />
-          <Tab label="Configuración" />
-          <div slot="content">
-            <br />
-            <TabContent><CreateSchedule /></TabContent>
-            <TabContent><Settings /></TabContent>
-          </div>
-        </Tabs>
-      </Column>
-    </Row>
-  </Grid>
-</Content>
+<Header company="Javi Viña's" platformName="Automata Tool" />

@@ -46,14 +46,6 @@ export default {
 		inlineDynamicImports: true
 	},
 	plugins: [
-		replace({
-			preventAssignment: true,
-			"process.env.INTERNAL_INTEGRATION_TOKEN": JSON.stringify(process.env.INTERNAL_INTEGRATION_TOKEN),
-			"process.env.ASIGNATURAS_DB_ID": JSON.stringify(process.env.ASIGNATURAS_DB_ID),
-			"process.env.PROFESORES_DB_ID": JSON.stringify(process.env.PROFESORES_DB_ID),
-			"process.env.HORARIOS_DB_ID": JSON.stringify(process.env.HORARIOS_DB_ID),
-			"process.env.COSASCONFECHA_DB_ID": JSON.stringify(process.env.COSASCONFECHA_DB_ID),
-		}),
 		svelte({
 			// enable run-time checks when not in production
 			dev: !production,
