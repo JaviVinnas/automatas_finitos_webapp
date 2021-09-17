@@ -1,46 +1,43 @@
 import * as ArrayUtils from "../Utils/Arrays";
 import * as SetUtils from "../Utils/Sets";
 import type { Optional } from "../Utils/types";
+import type { NoLambdaString } from "./StringTypes";
 
-export const LAMBDA = "λ" as const;
-
-
-export type TransitionMap<Input extends string, StateName extends string> = Map<Input | typeof LAMBDA, Set<StateName>>
-
-export type NoLambdaString = Exclude<string, typeof LAMBDA>
-
-/**
- * Interfaz que define un estado de un autómata
- */
-export interface IState<StateName extends NoLambdaString, Input extends NoLambdaString> {
-  /**
-   * Identificador del estado. En estado perteneciente a un autómata solo tendrá un único valor que lo identifica
-   */
-  readonly id: Set<StateName>;
-  isInitial: boolean;
-  isFinal: boolean;
-  addTransition: (input: Input, to: StateName[]) => void;
-  removeTransition: (input: Input, to: StateName[]) => void;
-  composeStates: (...states: IState<Input, StateName>[]) => void;
+export interface Determinable {
+  readonly isDeterministic: boolean;
 }
 
-export class State<StateName extends NoLambdaString, Input extends NoLambdaString, >
-  implements IState<StateName, Input>
-{
+export interface State<
+  StateName extends NoLambdaString,
+  Input extends NoLambdaString
+> extends Determinable {
   readonly id: Set<StateName>;
   readonly isInitial: boolean;
   readonly isFinal: boolean;
-  private transitions: Map<Input | typeof LAMBDA, Set<StateName>>
   addTransition: (input: Input, to: StateName[]) => void;
   removeTransition: (input: Input, to: StateName[]) => void;
-  composeStates: (...states: IState<Input, StateName>[]) => void;
-  constructor(identifyer: StateName[], isInitial: boolean, isFinal: boolean, transitions?: Record<Input | typeof LAMBDA, StateName[]>) {
-    this.id = new Set(identifyer);
-    this.isInitial = isInitial;
-    this.isFinal = isFinal;
-    this.transitions = new Map();
-  }
+  getTransition: (input: Input) => Set<StateName>;
+  composeStates: (
+    ...states: State<Input, StateName>[]
+  ) => State<Input, StateName>;
 }
+
+export interface Automata<
+  StateName extends NoLambdaString,
+  Input extends NoLambdaString
+  > extends Determinable{
+  activeStates: State<StateName, Input>[];
+  states: State<StateName, Input>[];
+  addTransition: (from: StateName, input: Input, to: StateName[]) => void;
+  removeTransition: (from: StateName, input: Input, to: StateName[]) => void;
+  getState: (id: StateName[]) => State<StateName, Input>;
+  getStateClosure: (id: StateName[]) => State<StateName, Input>[];
+  getComposeStateClosure: (id: StateName[]) => State<StateName, Input>
+  //TODO: getTransition: ()
+}
+
+
+
 
 export type Letters =
   | "a"
