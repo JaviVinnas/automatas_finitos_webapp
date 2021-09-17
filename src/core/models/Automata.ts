@@ -2,6 +2,46 @@ import * as ArrayUtils from "../Utils/Arrays";
 import * as SetUtils from "../Utils/Sets";
 import type { Optional } from "../Utils/types";
 
+export const LAMBDA = "λ" as const;
+
+
+export type TransitionMap<Input extends string, StateName extends string> = Map<Input | typeof LAMBDA, Set<StateName>>
+
+export type NoLambdaString = Exclude<string, typeof LAMBDA>
+
+/**
+ * Interfaz que define un estado de un autómata
+ */
+export interface IState<StateName extends NoLambdaString, Input extends NoLambdaString> {
+  /**
+   * Identificador del estado. En estado perteneciente a un autómata solo tendrá un único valor que lo identifica
+   */
+  readonly id: Set<StateName>;
+  isInitial: boolean;
+  isFinal: boolean;
+  addTransition: (input: Input, to: StateName[]) => void;
+  removeTransition: (input: Input, to: StateName[]) => void;
+  composeStates: (...states: IState<Input, StateName>[]) => void;
+}
+
+export class State<StateName extends NoLambdaString, Input extends NoLambdaString, >
+  implements IState<StateName, Input>
+{
+  readonly id: Set<StateName>;
+  readonly isInitial: boolean;
+  readonly isFinal: boolean;
+  private transitions: Map<Input | typeof LAMBDA, Set<StateName>>
+  addTransition: (input: Input, to: StateName[]) => void;
+  removeTransition: (input: Input, to: StateName[]) => void;
+  composeStates: (...states: IState<Input, StateName>[]) => void;
+  constructor(identifyer: StateName[], isInitial: boolean, isFinal: boolean, transitions?: Record<Input | typeof LAMBDA, StateName[]>) {
+    this.id = new Set(identifyer);
+    this.isInitial = isInitial;
+    this.isFinal = isFinal;
+    this.transitions = new Map();
+  }
+}
+
 export type Letters =
   | "a"
   | "b"
@@ -30,7 +70,7 @@ export type Letters =
   | "y"
   | "z";
 
-export type State<
+export type StateOld<
   AcceptedSymbols extends Letters | 0 | 1,
   StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 > = {
@@ -40,12 +80,12 @@ export type State<
   transition: Map<AcceptedSymbols | "λ", Set<StateNames>>;
 };
 
-export type FiniteAutomata<
+export type FiniteAutomataOld<
   AcceptedSymbols extends Letters | 0 | 1,
   StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
-> = Set<State<AcceptedSymbols, StateNames>>;
+> = Set<StateOld<AcceptedSymbols, StateNames>>;
 
-const example: FiniteAutomata<0 | 1, "A" | "B" | "C"> = new Set();
+const example: FiniteAutomataOld<0 | 1, "A" | "B" | "C"> = new Set();
 
 example.add({
   identifyer: new Set(["A"]),
@@ -87,7 +127,7 @@ example.add({
 function isDeterministic<
   AcceptedSymbols extends Letters | 0 | 1,
   States extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
->(automata: FiniteAutomata<AcceptedSymbols, States>): boolean {
+>(automata: FiniteAutomataOld<AcceptedSymbols, States>): boolean {
   if (automata.size === 0) return true;
   const states = [...automata.keys()];
   //is deterministic if only has one result for each transition and all of his λ transitions are empty
@@ -118,9 +158,9 @@ function addStates<
   AcceptedSymbols extends Letters | 0 | 1,
   StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 >(
-  state1: State<AcceptedSymbols, StateNames>,
-  state2: State<AcceptedSymbols, StateNames>
-): State<AcceptedSymbols, StateNames> {
+  state1: StateOld<AcceptedSymbols, StateNames>,
+  state2: StateOld<AcceptedSymbols, StateNames>
+): StateOld<AcceptedSymbols, StateNames> {
   //create the new identifyer as union of the two states identifyers
   const identifyer = new Set([...state1.identifyer, ...state2.identifyer]);
   //final or initial if one of the states is final or initial
@@ -158,8 +198,8 @@ function composeStates<
   AcceptedSymbols extends Letters | 0 | 1,
   StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 >(
-  ...states: State<AcceptedSymbols, StateNames>[]
-): State<AcceptedSymbols, StateNames> {
+  ...states: StateOld<AcceptedSymbols, StateNames>[]
+): StateOld<AcceptedSymbols, StateNames> {
   if (states.length === 0)
     throw new Error("Can't compose an array of empty states!");
   if (states.length === 1) return states[0];
@@ -176,9 +216,9 @@ function getState<
   AcceptedSymbols extends Letters | 0 | 1,
   StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 >(
-  automata: FiniteAutomata<AcceptedSymbols, StateNames>,
+  automata: FiniteAutomataOld<AcceptedSymbols, StateNames>,
   stateName: StateNames
-): State<AcceptedSymbols, StateNames>{
+): StateOld<AcceptedSymbols, StateNames> {
   //return the state of the automata ()
   return [...automata].find((state) =>
     SetUtils.equals(state.identifyer, new Set([stateName]))
@@ -192,14 +232,17 @@ function getState<
  * @see getState
  */
 function getStates<
-AcceptedSymbols extends Letters | 0 | 1,
-StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
->(automata: FiniteAutomata<AcceptedSymbols, StateNames>,
-  stateNames: StateNames[]) : State<AcceptedSymbols, StateNames>[] {
+  AcceptedSymbols extends Letters | 0 | 1,
+  StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
+>(
+  automata: FiniteAutomataOld<AcceptedSymbols, StateNames>,
+  stateNames: StateNames[]
+): StateOld<AcceptedSymbols, StateNames>[] {
   //remove duplicates
-  return [...new Set(stateNames)].map((stateName) => getState(automata, stateName));
-
-  }
+  return [...new Set(stateNames)].map((stateName) =>
+    getState(automata, stateName)
+  );
+}
 
 /**
  * Return an set with itself and the recursive states via the lambda (empty) transition
@@ -210,7 +253,7 @@ function getClosure<
   AcceptedSymbols extends Letters | 0 | 1,
   States extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 >(
-  automata: FiniteAutomata<AcceptedSymbols, States>,
+  automata: FiniteAutomataOld<AcceptedSymbols, States>,
   stateName: States
 ): Set<States> {
   const auxiliarStateStack = [stateName]; //used to avoid recursion
@@ -248,9 +291,9 @@ function getComposeClosure<
   AcceptedSymbols extends Letters | 0 | 1,
   States extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 >(
-  automata: FiniteAutomata<AcceptedSymbols, States>,
+  automata: FiniteAutomataOld<AcceptedSymbols, States>,
   stateName: States
-): State<AcceptedSymbols, States> {
+): StateOld<AcceptedSymbols, States> {
   const resultSet = getClosure(automata, stateName);
   const states = getStates(automata, [...resultSet]);
   return composeStates(...states);
@@ -266,7 +309,7 @@ function transition<
   AcceptedSymbols extends Letters | 0 | 1,
   StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 >(
-  automata: FiniteAutomata<AcceptedSymbols, StateNames>,
+  automata: FiniteAutomataOld<AcceptedSymbols, StateNames>,
   activeStateIdentifyers: Set<StateNames>,
   input: AcceptedSymbols
 ): Set<StateNames> {
@@ -280,7 +323,7 @@ function composeTransition<
   AcceptedSymbols extends Letters | 0 | 1,
   StateNames extends `${Uppercase<Letters>}${Uppercase<Letters> | ""}`
 >(
-  automata: FiniteAutomata<AcceptedSymbols, StateNames>,
+  automata: FiniteAutomataOld<AcceptedSymbols, StateNames>,
   activeStateIdentifyers: Set<StateNames>,
   input: AcceptedSymbols
 ) {
