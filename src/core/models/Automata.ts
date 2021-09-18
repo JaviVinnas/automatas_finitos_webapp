@@ -3,14 +3,19 @@ import * as SetUtils from "../Utils/Sets";
 import type { Optional } from "../Utils/types";
 import type { NoLambdaString } from "./StringTypes";
 
+export interface Stringable {
+  toString(): string;
+}
+
 export interface Determinable {
-  readonly isDeterministic: boolean;
+  isDeterministic(): boolean;
 }
 
 export interface State<
   StateName extends NoLambdaString,
   Input extends NoLambdaString
-> extends Determinable {
+> extends Determinable,
+    Stringable {
   readonly id: Set<StateName>;
   readonly isInitial: boolean;
   readonly isFinal: boolean;
@@ -25,19 +30,21 @@ export interface State<
 export interface Automata<
   StateName extends NoLambdaString,
   Input extends NoLambdaString
-  > extends Determinable{
-  activeStates: State<StateName, Input>[];
+> extends Determinable,
+    Stringable {
   states: State<StateName, Input>[];
   addTransition: (from: StateName, input: Input, to: StateName[]) => void;
   removeTransition: (from: StateName, input: Input, to: StateName[]) => void;
-  getState: (id: StateName[]) => State<StateName, Input>;
-  getStateClosure: (id: StateName[]) => State<StateName, Input>[];
-  getComposeStateClosure: (id: StateName[]) => State<StateName, Input>
-  //TODO: getTransition: ()
+  getState: (id: StateName) => State<StateName, Input>;
+  getStateClosure: (id: StateName) => State<StateName, Input>[];
+  getComposeStateClosure: (id: StateName) => State<StateName, Input>;
+  getTransition: (from: StateName, input: Input) => State<StateName, Input>[];
+  getComposeTransition: (
+    from: StateName,
+    input: Input
+  ) => State<StateName, Input>;
+  testInput(input: string): boolean;
 }
-
-
-
 
 export type Letters =
   | "a"
