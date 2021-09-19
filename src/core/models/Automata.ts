@@ -1,7 +1,7 @@
 import * as ArrayUtils from "../Utils/Arrays";
-import * as SetUtils from "../Utils/Sets";
+import * as Sets from "../Utils/Sets";
 import type { Optional } from "../Utils/types";
-import type { NoLambdaString } from "./StringTypes";
+import { LAMBDA } from "./Strings";
 
 export interface Stringable {
   toString(): string;
@@ -12,30 +12,146 @@ export interface Determinable {
 }
 
 export interface State<
-  StateName extends NoLambdaString,
-  Input extends NoLambdaString
+  StateName extends string,
+  Input extends string | typeof LAMBDA
 > extends Determinable,
     Stringable {
+  /**
+   * Set of identifyers of an state. If is an automata state its size **must be 1**
+   */
   readonly id: Set<StateName>;
+  /**
+   * If is an initial state. An automata only can contain one initial state
+   */
   readonly isInitial: boolean;
+  /**
+   * If the state is final ergo valid
+   */
   readonly isFinal: boolean;
-  addTransition: (input: Input, to: StateName[]) => void;
-  removeTransition: (input: Input, to: StateName[]) => void;
-  getTransition: (input: Input) => Set<StateName>;
-  composeStates: (
-    ...states: State<Input, StateName>[]
-  ) => State<Input, StateName>;
+  /**
+   * Set of inputs recognizables by the state
+   */
+  getInputs(): Set<Input>;
+  /**
+   * Add a transition to the state
+   * @param input the input who provokes the transition
+   * @param to the final states of the transition. It will be added to the ones already added
+   */
+  addTransition(input: Input, to: StateName[] | Set<StateName>): void;
+  /**
+   * Remove transition states
+   * @param input the input who provokes the transition
+   * @param to the final states we want to remove
+   */
+  removeTransition(input: Input, to: StateName[] | Set<StateName>): void;
+  /**
+   * Gets the states we obtain by applying the input
+   * @param input the input who provokes the transition
+   */
+  getTransition(input: Input): Set<StateName>;
+  /**
+   * Add an state to the current one
+   * @param state the state we want to add
+   */
+  composeState(state: State<StateName, Input>): State<StateName, Input>;
+  /**
+   * Add the states passed by arguments to the current one
+   * @param states
+   * @see composeState
+   */
+  composeStates(...states: State<StateName, Input>[]): State<StateName, Input>;
 }
 
-export interface Automata<
-  StateName extends NoLambdaString,
-  Input extends NoLambdaString
-> extends Determinable,
+export class StateImpl<
+  StateName extends string,
+  Input extends string | typeof LAMBDA
+> implements State<StateName, Input>
+{
+  public readonly id: Set<StateName>;
+  public readonly isInitial: boolean;
+  public readonly isFinal: boolean;
+  private transitionMap: Map<Input, Set<StateName>>;
+
+  constructor(
+    id: StateName[] | Set<StateName>,
+    isInitial: boolean = false,
+    isFinal: boolean = false
+  ) {
+    this.id = new Set(id);
+    if (this.id.size === 0) throw new Error("Cant create state without ID");
+    this.isInitial = isInitial;
+    this.isFinal = isFinal;
+    this.transitionMap = new Map();
+  }
+
+  getInputs() {
+    return new Set(this.transitionMap.keys());
+  }
+
+  addTransition(input: Input, to: StateName[] | Set<StateName>): void {
+    this.transitionMap.set(
+      input,
+      Sets.union(this.transitionMap.get(input), new Set(to))
+    );
+  }
+  removeTransition(input: Input, to: StateName[] | Set<StateName>): void {
+    this.transitionMap.set(
+      input,
+      Sets.difference(this.transitionMap.get(input), new Set(to))
+    );
+  }
+  getTransition(input: Input): Set<StateName> {
+    return this.transitionMap.get(input) || new Set();
+  }
+  composeState(state: State<StateName, Input>): State<StateName, Input> {
+    const resultState = new StateImpl<StateName, Input>(
+      Sets.union(this.id, state.id),
+      this.isInitial || state.isInitial,
+      this.isFinal || state.isFinal
+    );
+    Sets.union(this.getInputs(), state.getInputs()).forEach((input) => {
+      resultState.addTransition(
+        input,
+        Sets.union(this.getTransition(input), state.getTransition(input))
+      );
+    });
+    return resultState;
+  }
+  composeStates(...states: State<StateName, Input>[]): State<StateName, Input> {
+    return states.reduce((acum, current) => acum.composeState(current), this);
+  }
+  isDeterministic(): boolean {
+    const idHasOnlyOneItem = this.id.size === 1;
+
+    const validTransitions = [...this.getInputs()]
+      .map((input) => {
+        return {
+          isLambda: input === LAMBDA,
+          size: this.getTransition(input).size,
+        };
+      })
+      .every((result) =>
+        result.isLambda ? result.size <= 0 : result.size <= 1
+      );
+
+    return idHasOnlyOneItem && validTransitions;
+  }
+  toString(): string {
+    return `[(${[...this.id]}) ${this.isFinal ? "Final" : ""} ${
+      this.isInitial ? "Initial" : ""
+    }] => ${this.transitionMap}`;
+  }
+}
+
+export interface Automata<StateName extends string, Input extends string>
+  extends Determinable,
     Stringable {
-  states: State<StateName, Input>[];
+  readonly states: State<StateName, Input>[];
+  addState: (state: State<StateName, Input>) => void;
+  removeState: (state: StateName) => void;
+  getState: (id: StateName) => State<StateName, Input>;
   addTransition: (from: StateName, input: Input, to: StateName[]) => void;
   removeTransition: (from: StateName, input: Input, to: StateName[]) => void;
-  getState: (id: StateName) => State<StateName, Input>;
   getStateClosure: (id: StateName) => State<StateName, Input>[];
   getComposeStateClosure: (id: StateName) => State<StateName, Input>;
   getTransition: (from: StateName, input: Input) => State<StateName, Input>[];
@@ -44,6 +160,14 @@ export interface Automata<
     input: Input
   ) => State<StateName, Input>;
   testInput(input: string): boolean;
+  makeDeterministic: <NewStateName extends string>() => {
+    changes: Map<StateName[], NewStateName>;
+    automata: Automata<NewStateName, Input>;
+  };
+  makeMinimum: <NewStateName extends string>() => {
+    changes: Map<StateName[], NewStateName>;
+    automata: Automata<NewStateName, Input>;
+  };
 }
 
 export type Letters =
@@ -225,7 +349,7 @@ function getState<
 ): StateOld<AcceptedSymbols, StateNames> {
   //return the state of the automata ()
   return [...automata].find((state) =>
-    SetUtils.equals(state.identifyer, new Set([stateName]))
+    Sets.equals(state.identifyer, new Set([stateName]))
   );
 }
 /**
